@@ -28,7 +28,6 @@ speechbrain<1.0
 requests
 huggingface_hub
 fastcore
-torch>=2
 torchaudio
 soundfile
 vector_quantize_pytorch==1.6.22
