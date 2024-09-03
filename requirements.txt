@@ -27,7 +27,6 @@ vocos
 speechbrain<1.0
 requests
 huggingface_hub
-fastprogress
 fastcore
 torch>=2
 torchaudio
