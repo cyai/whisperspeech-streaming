@@ -1,4 +1,4 @@
-'''
+"""
 DESCRIPTION~
 
 Processes a body of text directly into audio playback using the sounddevice library.
@@ -20,14 +20,16 @@ https://pytorch.org/get-started/locally/
 (3)  pip3 install WhisperSpeech
 (4)  pip3 install sounddevice==0.4.6
 (5)  python text_to_playback.py
-'''
+"""
 
-from whisperspeech.pipeline import Pipeline
+from WhisperSpeech.whisperspeech.pipeline import Pipeline
 
 # pipe = Pipeline(s2a_ref='collabora/whisperspeech:s2a-q4-small-en+pl.model')
 # pipe = Pipeline(s2a_ref='collabora/whisperspeech:s2a-q4-tiny-en+pl.model')
-pipe = Pipeline(s2a_ref='collabora/whisperspeech:s2a-q4-base-en+pl.model')
+pipe = Pipeline(s2a_ref="collabora/whisperspeech:s2a-q4-base-en+pl.model")
 
-pipe.generate_to_playback("""
+pipe.generate_to_playback(
+    """
  This is some sample text. You would add text here that you want spoken and then only leave one of the above lines uncommented for the model you want to test. This text is being used to test a new generate to playback method within the pipeline script.  It would require adding sounddevice as a dependency since that's what performs the playback.
-""")
+"""
+)

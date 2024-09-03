@@ -7,8 +7,8 @@ __all__ = []
 import time
 import torch
 from fastcore.script import call_parse
-from whisperspeech.pipeline import Pipeline
-from whisperspeech.inference import get_compute_device
+from WhisperSpeech.whisperspeech.pipeline import Pipeline
+from WhisperSpeech.whisperspeech.inference import get_compute_device
 
 # %% ../nbs/C. Benchmark.ipynb 3
 def measure(fun, iterations = 10):

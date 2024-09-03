@@ -18,8 +18,9 @@ import webdataset as wds
 
 import whisperx
 
-from whisperspeech.inference import get_compute_device
-from whisperspeech import utils
+from WhisperSpeech.whisperspeech.inference import get_compute_device
+from WhisperSpeech.whisperspeech import utils
+
 
 # %% ../nbs/1B. Voice activity detection.ipynb 6
 def extract_segments(vad_result, max_duration):
@@ -27,14 +28,21 @@ def extract_segments(vad_result, max_duration):
     segments = binarize(vad_result)
     return [(x.start, x.end) for x in segments.get_timeline()]
 
+
 def segment_audio(vad_model, audio, sr=16000):
     vad_result = vad_model({"waveform": audio, "sample_rate": sr})
     return extract_segments(vad_result, 30)
 
+
 # %% ../nbs/1B. Voice activity detection.ipynb 8
 # from https://huggingface.co/spaces/facebook/MusicGen/blob/9cae843238aad3f5c7695a40c9ee77c42dd87aaf/audiocraft/data/audio_utils.py
-def normalize_loudness(wav: torch.Tensor, sample_rate: int, loudness_headroom_db: float = 14,
-                       loudness_compressor: bool = False, energy_floor: float = 2e-3):
+def normalize_loudness(
+    wav: torch.Tensor,
+    sample_rate: int,
+    loudness_headroom_db: float = 14,
+    loudness_compressor: bool = False,
+    energy_floor: float = 2e-3,
+):
     """Normalize an input signal to a user loudness in dB LKFS.
     Audio loudness is defined according to the ITU-R BS.1770-4 recommendation.
     Args:
@@ -60,46 +68,54 @@ def normalize_loudness(wav: torch.Tensor, sample_rate: int, loudness_headroom_db
     assert output.isfinite().all(), (input_loudness_db, wav.pow(2).mean().sqrt())
     return output, gain
 
+
 # %% ../nbs/1B. Voice activity detection.ipynb 9
 @call_parse
 def process_shard(
-    input:str,           # input shard URL/path
-    output:str,          # output shard URL/path
-    key:str='audio',     # string to replace with 'vad' in the shard name
-    model:str='whisperx' # VAD model to use (possible values: `whisperx` or `pyannote`)
-):  
+    input: str,  # input shard URL/path
+    output: str,  # output shard URL/path
+    key: str = "audio",  # string to replace with 'vad' in the shard name
+    model: str = "whisperx",  # VAD model to use (possible values: `whisperx` or `pyannote`)
+):
     ds = wds.WebDataset(url).compose(
         wds.decode(utils.torch_audio_opus),
         utils.find_audio,
     )
     dl = torch.utils.data.DataLoader(ds, num_workers=1, batch_size=None)
-    
-    if model == 'whisperx':
+
+    if model == "whisperx":
         vad_model = whisperx.vad.load_vad_model(get_compute_device())
-    elif model == 'pyannote':
+    elif model == "pyannote":
         from pyannote.audio import Pipeline
+
         pyannote_vad = Pipeline.from_pretrained("pyannote/voice-activity-detection")
-    
+
     def calc_power(audio, sr, ts, te):
-        snd = audio[:,int(ts*sr):int(te*sr)]
-        return (snd*snd).mean().log()
-    
+        snd = audio[:, int(ts * sr) : int(te * sr)]
+        return (snd * snd).mean().log()
+
     with utils.AtomicTarWriter(output) as sink:
-        for s in progress_bar(dl, total='noinfer'):
-            audio, sr = s['audio']
+        for s in progress_bar(dl, total="noinfer"):
+            audio, sr = s["audio"]
             ash = audio.shape
             shift = audio.mean()
             # only normalize the first 2 hours (it fails with OOM for 7.5 hour file)
-            audio, gain = normalize_loudness(audio[:,:sr*3600*2] - shift, sr)
-            if model == 'whisperx':
+            audio, gain = normalize_loudness(audio[:, : sr * 3600 * 2] - shift, sr)
+            if model == "whisperx":
                 segments = segment_audio(vad_model, audio, sr=sr)
-            elif model == 'pyannote':
-                segments = [(x.start, x.end)
-                            for x in pyannote_vad({"waveform":audio,"sample_rate":sr}).get_timeline().support()]
+            elif model == "pyannote":
+                segments = [
+                    (x.start, x.end)
+                    for x in pyannote_vad({"waveform": audio, "sample_rate": sr})
+                    .get_timeline()
+                    .support()
+                ]
             powers = [calc_power(audio, sr, ts, te) for ts, te in segments]
-            sink.write({
-                "__key__": s['__key__'],
-                "gain_shift.npy": np.array([gain, shift], dtype=np.float32),
-                "vad.npy": np.array(segments, dtype=np.float32),
-                "powers.npy": np.array(powers, dtype=np.float32),
-            })
+            sink.write(
+                {
+                    "__key__": s["__key__"],
+                    "gain_shift.npy": np.array([gain, shift], dtype=np.float32),
+                    "vad.npy": np.array(segments, dtype=np.float32),
+                    "powers.npy": np.array(powers, dtype=np.float32),
+                }
+            )
