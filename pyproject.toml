@@ -1,9 +1,8 @@
 [tool.poetry]
-name = "Whisper Speech Streaming"
+name = "whisperspeechstreaming"
 version = "0.1.0"
 description = ""
-authors = ["Vardhaman <vardhamankalloli722@gmail.com>"]
-license = "MIT"
+authors = ["cyai <83634399+cyai@users.noreply.github.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
@@ -57,6 +56,7 @@ ipython = "*"
 # Git dependencies
 whisperx = {git = "https://github.com/m-bain/whisperx.git"}
 
+
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
