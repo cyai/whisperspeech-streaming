@@ -3,7 +3,7 @@
 ```bash
 cd
 apt-get update
-apt-get install -y lsof unzip llvm uvicorn  build-essential python3-dev
+apt-get install -y lsof unzip llvm uvicorn  build-essential python3-dev vim
 git clone https://github.com/cyai/whisperspeech-streaming
 wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
 apt-add-repository "deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-9 main"
