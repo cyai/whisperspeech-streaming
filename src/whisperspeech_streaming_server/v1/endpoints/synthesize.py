@@ -25,6 +25,7 @@ logger.addHandler(stream_handler)
 async def send_audio_stream(websocket: WebSocket, audio_stream):
     try:
         async for audio_chunk in audio_stream:
+            audio_bytes = audio_chunk.cpu().numpy().tobytes()
             response = SynthesisResponse(audio_chunk=audio_chunk)
             await websocket.send_bytes(response.audio_chunk)
     except WebSocketDisconnect:
