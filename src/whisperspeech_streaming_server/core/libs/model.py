@@ -87,7 +87,7 @@ class StreamingPipeline(Pipeline):
         for stoks in self.t2s.generate(text, cps=cps, lang=lang, step=step_callback):
             print("\n\n\nDEBUG: Stoks: ", stoks)
             for atoks in self.s2a.generate(
-                stoks[0], speaker.unsqueeze(0), step=step_callback
+                stoks[0].unsqueeze(0), speaker.unsqueeze(0), step=step_callback
             ):
                 yield atoks
 
