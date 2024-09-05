@@ -69,6 +69,7 @@ class WebSocketHandler:
                     for audio_stream in self.pipeline.generate(
                         texts, speaker=self.speaker, cps=10
                     ):
+                        print("DEBUG: audio_stream", audio_stream)
                         await send_audio_stream(websocket, audio_stream)
 
                 # await send_audio_stream(websocket, audio_stream)
