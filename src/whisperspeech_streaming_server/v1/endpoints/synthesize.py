@@ -31,6 +31,14 @@ async def send_audio_stream(websocket: WebSocket, audio_stream):
         pass
 
 
+async def tensor_to_async_iterable(tensor, chunk_size=1024):
+    num_chunks = tensor.size(1) // chunk_size
+    for i in range(num_chunks):
+        yield tensor[:, i * chunk_size : (i + 1) * chunk_size]
+    if tensor.size(1) % chunk_size != 0:
+        yield tensor[:, num_chunks * chunk_size :]
+
+
 class WebSocketHandler:
     def __init__(self, pipeline):
         # self.model = tts_model
@@ -69,8 +77,9 @@ class WebSocketHandler:
                     for audio_stream in self.pipeline.generate(
                         texts, speaker=self.speaker, cps=10
                     ):
-                        print("DEBUG: audio_stream", audio_stream)
-                        await send_audio_stream(websocket, audio_stream)
+                        # print("DEBUG: audio_stream", audio_stream)
+                        async_audio_stream = tensor_to_async_iterable(audio_stream)
+                        await send_audio_stream(websocket, async_audio_stream)
 
                 # await send_audio_stream(websocket, audio_stream)
         except WebSocketDisconnect:
