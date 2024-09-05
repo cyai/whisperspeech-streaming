@@ -80,6 +80,7 @@ class StreamingPipeline(Pipeline):
         if speaker is None:
             speaker = self.default_speaker
         elif isinstance(speaker, (str, Path)):
+            logger.info("Extracting Speaker embeddings for speaker: ", speaker)
             speaker = self.extract_spk_emb(speaker)
         text = text.replace("\n", " ")
         logger.debug("\n\n\nDEBUG: Generating t2s")
