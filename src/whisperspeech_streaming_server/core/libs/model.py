@@ -85,7 +85,7 @@ class StreamingPipeline(Pipeline):
         text = text.replace("\n", " ")
         print("\n\n\nDEBUG: Generating t2s")
         for stoks in self.t2s.generate(text, cps=cps, lang=lang, step=step_callback):
-            print("\n\n\nDEBUG: Stoks: ", stoks[0].unsqueeze(0)
+            print("\n\n\nDEBUG: Stoks: ", stoks[0].unsqueeze(0))
             for atoks in self.s2a.generate(
                 stoks[0].unsqueeze(0), speaker.unsqueeze(0), step=step_callback
             ):
