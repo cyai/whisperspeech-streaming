@@ -92,7 +92,8 @@ class WebSocketHandler:
 
 model_ref = "collabora/whisperspeech:s2a-q4-base-en+pl.model"
 
-pipe = StreamingPipeline(s2a_ref=model_ref)
+# pipe = StreamingPipeline(s2a_ref=model_ref)
+pipe = Pipeline(s2a_ref=model_ref)
 
 handler = WebSocketHandler(pipe)
 

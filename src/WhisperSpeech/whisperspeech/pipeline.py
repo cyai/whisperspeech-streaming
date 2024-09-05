@@ -296,7 +296,7 @@ class Pipeline:
         return atoks
 
     def generate(self, text, speaker=None, lang="en", cps=15, step_callback=None):
-        return self.vocoder.decode(
+        yield self.vocoder.decode(
             self.generate_atoks(
                 text, speaker, lang=lang, cps=cps, step_callback=step_callback
             )
