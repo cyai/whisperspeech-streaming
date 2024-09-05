@@ -1,20 +1,19 @@
-from WhisperSpeech.whisperspeech.pipeline import Pipeline
-from WhisperSpeech.whisperspeech.t2s_up_wds_mlang_enclm import TSARTransformer
 from WhisperSpeech.whisperspeech.modules import *
+from WhisperSpeech.whisperspeech.a2wav import Vocoder
+from WhisperSpeech.whisperspeech.pipeline import Pipeline
 from WhisperSpeech.whisperspeech import languages, inference
+from WhisperSpeech.whisperspeech.s2a_delar_mup_wds_mlang import (
+    SADelARTransformer as SADelARTransformerBase,
+)
+from WhisperSpeech.whisperspeech.t2s_up_wds_mlang_enclm import TSARTransformer
 from WhisperSpeech.whisperspeech.s2a_delar_mup_wds_mlang_cond import SADelARTransformer
 
-from pathlib import Path
-import traceback
-import dataclasses
-import random
-import math
-import itertools
 import torch
-import torch.nn as nn
+import traceback
+from pathlib import Path
 import torch.nn.functional as F
-from torch.profiler import record_function
 from fastprogress import progress_bar
+from torch.profiler import record_function
 
 
 class StreamingPipeline(Pipeline):
@@ -26,21 +25,23 @@ class StreamingPipeline(Pipeline):
         torch_compile=False,
         device=None,
     ):
-        super().__init__(t2s_ref, s2a_ref, optimize, torch_compile, device)
         if device is None:
             device = inference.get_compute_device()
         self.device = device
         args = dict(device=device)
         try:
+            if t2s_ref:
+                args["ref"] = t2s_ref
             self.t2s = StreamingTSARTransformer.load_model(
                 **args
             )  # use obtained compute device
+            # self.t2s = TSARTransformer.load_model(**args)  # use obtained compute device
             if optimize:
                 self.t2s.optimize(torch_compile=torch_compile)
         except:
             print("Failed to load the T2S model:")
             print(traceback.format_exc())
-
+        args = dict(device=device)
         try:
             if s2a_ref:
                 spec = inference.load_model(ref=s2a_ref, device=device)
@@ -50,18 +51,22 @@ class StreamingPipeline(Pipeline):
                     if x.startswith("cond_embeddings.")
                 ]:
                     cls = StreamingSADelARTransformer
+                    # cls = s2a_delar_mup_wds_mlang_cond.SADelARTransformer
                     args["spec"] = spec
                 else:
-                    cls = SADelARTransformer
+                    cls = StreamingSADelARTransformerBase
                     args["spec"] = spec
             else:
-                cls = SADelARTransformer
+                cls = StreamingSADelARTransformerBase
             self.s2a = cls.load_model(**args)  # use obtained compute device
             if optimize:
                 self.s2a.optimize(torch_compile=torch_compile)
         except:
             print("Failed to load the S2A model:")
             print(traceback.format_exc())
+
+        self.vocoder = Vocoder(device=device)
+        self.encoder = None
 
     def generate_atoks(self, text, speaker=None, lang="en", cps=15, step_callback=None):
         if speaker is None:
@@ -79,6 +84,95 @@ class StreamingPipeline(Pipeline):
                 text, speaker, lang=lang, cps=cps, step_callback=step_callback
             )
         )
+
+
+class StreamingSADelARTransformerBase(SADelARTransformerBase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    @torch.no_grad()
+    def generate(
+        self,
+        stoks,
+        speakers,
+        langs=None,
+        atoks_prompt=None,
+        N=None,
+        bs=1,
+        T=0.7,
+        top_k=None,
+        show_progress_bar=True,
+        step=None,
+        subsample_enc=False,
+    ):
+        dev = self.device
+        N = N or len(stoks) * 3
+        stoks = F.pad(
+            stoks.to(dev),
+            (1, self.stoks_len - len(stoks) - 1),
+            value=self.stoks_codes - 1,
+        ).unsqueeze(0)
+        speakers = speakers.to(device=dev, dtype=self.dtype)
+        toks = torch.full(
+            (bs, self.quantizers, self.ctx_n),
+            self.codes + 1,
+            dtype=torch.long,
+            device=dev,
+        )
+        T = torch.tensor(T, device=dev)
+
+        start = 0  # number of valid tokens or the index of first empty spot
+        if atoks_prompt is not None:
+            start = atoks_prompt.shape[-1]
+            for i in range(self.quantizers):
+                toks[:, i, 1 + i : start + i + 1] = atoks_prompt[:, i]
+        start += 1  # we always start with at least an SOT
+
+        with record_function("encode"):
+            stoks, speakers = [x.repeat(bs, 1) for x in (stoks, speakers)]
+            xenc, xenc_positions, _ = self.run_encoder(stoks, speakers)
+            toks_positions = torch.arange(N, device=dev)
+        with record_function("prefill"):
+            initial = self.generate_one(
+                toks[:, :, :start],
+                toks_positions[:start],
+                langs,
+                xenc,
+                xenc_positions,
+                T,
+                top_k,
+            )
+            toks[:, :start, start : start + 1] = initial[:, :start]
+            start += 1
+
+        with inference.inference_context():
+            it = range(start, min(N, self.ctx_n - 1))
+            if show_progress_bar:
+                it = progress_bar(it)
+
+            for i in it:
+                with record_function("generate_one"):
+                    toks[:, :i, i : i + 1] = self.generate_next(
+                        toks[:, :, i - 1 : i],
+                        toks_positions[i - 1 : i],
+                        langs,
+                        xenc,
+                        xenc_positions,
+                        T,
+                        top_k,
+                    )[:, :i]
+
+                    yield toks[:, :, i : i + 1]
+
+                # for profiling, debugging or early exit
+                if step is not None:
+                    step()
+        # shift tokens
+        toks = toks[:, :, 1:N]
+        for j in range(self.quantizers):
+            toks[:, j] = torch.roll(toks[:, j], -j)
+        # return toks[:, :, : N - 4]
+        yield toks[:, :, : N - 4]
 
 
 class StreamingTSARTransformer(TSARTransformer):
