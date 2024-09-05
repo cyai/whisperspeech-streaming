@@ -89,11 +89,11 @@ class StreamingPipeline(Pipeline):
         yield atoks
 
     def generate(self, text, speaker=None, lang="en", cps=15, step_callback=None):
-        yield self.vocoder.decode(
-            self.generate_atoks(
-                text, speaker, lang=lang, cps=cps, step_callback=step_callback
-            )
-        )
+        for atoks in self.generate_atoks(
+            text, speaker, lang=lang, cps=cps, step_callback=step_callback
+        ):
+            logger.debug(f"DEBUG: Atoks: {atoks}")
+            yield self.vocoder.decode(atoks)
 
 
 class StreamingSADelARTransformerBase(SADelARTransformerBase):
