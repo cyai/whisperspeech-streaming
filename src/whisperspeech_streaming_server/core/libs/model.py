@@ -16,12 +16,12 @@ from fastprogress import progress_bar
 from torch.profiler import record_function
 import logging
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(formatter)
-logger.addHandler(stream_handler)
+# logger = logging.getLogger(__name__)
+# logger.setLevel(logging.INFO)
+# formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+# stream_handler = logging.StreamHandler()
+# stream_handler.setFormatter(formatter)
+# logger.addHandler(stream_handler)
 
 
 class StreamingPipeline(Pipeline):
@@ -47,8 +47,8 @@ class StreamingPipeline(Pipeline):
             if optimize:
                 self.t2s.optimize(torch_compile=torch_compile)
         except:
-            logger.error("Failed to load the T2S model:")
-            logger.error(traceback.format_exc())
+            print("Failed to load the T2S model:")
+            print(traceback.format_exc())
         args = dict(device=device)
         try:
             if s2a_ref:
@@ -70,8 +70,8 @@ class StreamingPipeline(Pipeline):
             if optimize:
                 self.s2a.optimize(torch_compile=torch_compile)
         except:
-            logger.error("Failed to load the S2A model:")
-            logger.error(traceback.format_exc())
+            print("Failed to load the S2A model:")
+            print(traceback.format_exc())
 
         self.vocoder = Vocoder(device=device)
         self.encoder = None
@@ -80,10 +80,10 @@ class StreamingPipeline(Pipeline):
         if speaker is None:
             speaker = self.default_speaker
         elif isinstance(speaker, (str, Path)):
-            logger.info("Extracting Speaker embeddings for speaker: ", speaker)
+            print("Extracting Speaker embeddings for speaker: ", speaker)
             speaker = self.extract_spk_emb(speaker)
         text = text.replace("\n", " ")
-        logger.debug("\n\n\nDEBUG: Generating t2s")
+        print("\n\n\nDEBUG: Generating t2s")
         stoks = self.t2s.generate(text, cps=cps, lang=lang, step=step_callback)[0]
         atoks = self.s2a.generate(stoks, speaker.unsqueeze(0), step=step_callback)
         yield atoks
@@ -92,7 +92,7 @@ class StreamingPipeline(Pipeline):
         for atoks in self.generate_atoks(
             text, speaker, lang=lang, cps=cps, step_callback=step_callback
         ):
-            logger.debug(f"DEBUG: Atoks: {atoks}")
+            print(f"DEBUG: Atoks: {atoks}")
             yield self.vocoder.decode(atoks)
 
 
@@ -185,7 +185,7 @@ class StreamingSADelARTransformerBase(SADelARTransformerBase):
             # return toks[:, :, : N - 4]
             yield toks[:, :, : N - 4]
         except Exception as e:
-            logger.error(f"Failed to generate for s2a: {e}")
+            print(f"Failed to generate for s2a: {e}")
 
 
 class StreamingTSARTransformer(TSARTransformer):
@@ -293,7 +293,7 @@ class StreamingTSARTransformer(TSARTransformer):
                         step()
             # return toks[:, 1:]
         except Exception as e:
-            logger.error("Failed to generate t2s: ", e)
+            print("Failed to generate t2s: ", e)
 
 
 class StreamingSADelARTransformer(SADelARTransformer):
