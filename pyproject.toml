@@ -52,6 +52,7 @@ pandas = "*"
 pyarrow = "*"
 scikit-learn = "*"
 ipython = "*"
+torchvision = "*"
 
 # Git dependencies
 whisperx = {git = "https://github.com/m-bain/whisperx.git"}
