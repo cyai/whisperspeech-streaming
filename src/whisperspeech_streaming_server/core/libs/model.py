@@ -84,9 +84,9 @@ class StreamingPipeline(Pipeline):
             speaker = self.extract_spk_emb(speaker)
         text = text.replace("\n", " ")
         print("\n\n\nDEBUG: Generating t2s")
-        stoks = self.t2s.generate(text, cps=cps, lang=lang, step=step_callback)[0]
-        atoks = self.s2a.generate(stoks, speaker.unsqueeze(0), step=step_callback)
-        yield atoks
+        for stoks in self.t2s.generate(text, cps=cps, lang=lang, step=step_callback):
+            for atoks in self.s2a.generate(stoks, speaker.unsqueeze(0), step=step_callback)
+                yield atoks
 
     def generate(self, text, speaker=None, lang="en", cps=15, step_callback=None):
         for atoks in self.generate_atoks(
