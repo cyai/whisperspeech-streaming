@@ -176,7 +176,7 @@ class StreamingSADelARTransformerBase(SADelARTransformerBase):
                             top_k,
                         )[:, :i]
 
-                        yield toks[:, :, i : i + 1]
+                        # yield toks[:, :, i : i + 1]
 
                     # for profiling, debugging or early exit
                     if step is not None:
@@ -185,8 +185,8 @@ class StreamingSADelARTransformerBase(SADelARTransformerBase):
             toks = toks[:, :, 1:N]
             for j in range(self.quantizers):
                 toks[:, j] = torch.roll(toks[:, j], -j)
-            # return toks[:, :, : N - 4]
-            yield toks[:, :, : N - 4]
+            return toks[:, :, : N - 4]
+            # yield toks[:, :, : N - 4]
         except Exception as e:
             print(f"Failed to generate for s2a: {e}")
 
@@ -289,12 +289,12 @@ class StreamingTSARTransformer(TSARTransformer):
                         toks[:, i + 1]
                         == self.stoks_codes + self.tunables.padding_token_offset
                     ).all():
-                        yield toks[:, 1 : i + 1]
+                        return toks[:, 1 : i + 1]
 
                     # for profiling, debugging or early exit
                     if step is not None:
                         step()
-            # return toks[:, 1:]
+            return toks[:, 1:]
         except Exception as e:
             print("Failed to generate t2s: ", e)
 
