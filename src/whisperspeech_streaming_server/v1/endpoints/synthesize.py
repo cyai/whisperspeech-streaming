@@ -2,6 +2,7 @@ import logging
 import torch
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
+import numpy as np
 
 from whisperspeech_streaming_server.core.libs import StreamingPipeline
 from whisperspeech_streaming_server.core.schemas import (
@@ -24,8 +25,17 @@ logger.addHandler(stream_handler)
 
 async def send_audio_stream(websocket: WebSocket, audio_stream):
     try:
-        async for audio_chunk in audio_stream:
-            audio_bytes = audio_chunk.cpu().numpy().tobytes()
+        for audio_chunk in audio_stream:
+            audio_np = (audio_chunk.cpu().numpy() * 32767).astype(np.int16)
+
+            # Ensure the array is 2D
+            if len(audio_np.shape) == 1:
+                audio_np = np.expand_dims(audio_np, axis=0)
+            else:
+                audio_np = audio_np.T
+
+            # Convert the NumPy array to bytes
+            audio_bytes = audio_np.tobytes()
             response = SynthesisResponse(audio_chunk=audio_bytes)
             await websocket.send_bytes(response.audio_chunk)
     except WebSocketDisconnect:
@@ -79,8 +89,8 @@ class WebSocketHandler:
                         texts, speaker=self.speaker, cps=10
                     ):
                         # print("DEBUG: audio_stream", audio_stream)
-                        async_audio_stream = tensor_to_async_iterable(audio_stream)
-                        await send_audio_stream(websocket, async_audio_stream)
+                        # async_audio_stream = tensor_to_async_iterable(audio_stream)
+                        await send_audio_stream(websocket, audio_stream)
 
                 # await send_audio_stream(websocket, audio_stream)
         except WebSocketDisconnect:
